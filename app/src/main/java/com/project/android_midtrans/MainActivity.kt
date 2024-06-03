@@ -1,7 +1,9 @@
 package com.project.android_midtrans
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,6 +13,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.midtrans.sdk.uikit.api.model.*
 import com.midtrans.sdk.uikit.external.UiKitApi
 import com.midtrans.sdk.uikit.internal.util.UiKitConstants
+import com.midtrans.sdk.uikit.internal.util.UiKitConstants.STATUS_CANCELED
+import com.midtrans.sdk.uikit.internal.util.UiKitConstants.STATUS_FAILED
+import com.midtrans.sdk.uikit.internal.util.UiKitConstants.STATUS_INVALID
+import com.midtrans.sdk.uikit.internal.util.UiKitConstants.STATUS_PENDING
+import com.midtrans.sdk.uikit.internal.util.UiKitConstants.STATUS_SUCCESS
 import com.project.android_midtrans.databinding.ActivityMainBinding
 import java.text.SimpleDateFormat
 import java.util.*
@@ -25,7 +32,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        supportActionBar?.hide()
+        supportActionBar?.title = "Midtrans Payment"
 
         adapter = AdapterCable(dataList)
         binding.rvItems.layoutManager = LinearLayoutManager(this)
@@ -46,6 +53,7 @@ class MainActivity : AppCompatActivity() {
             .withContext(applicationContext)
             .withMerchantUrl("https://klephtic-electricit.000webhostapp.com/preresponse.php/")
             .enableLog(true)
+
             .withColorTheme(CustomColorTheme("#FFE51255", "#B61548", "#FFE51255"))
             .build()
         setLocaleNew("id")
@@ -59,7 +67,7 @@ class MainActivity : AppCompatActivity() {
         if (result?.resultCode == RESULT_OK) {
             result.data?.let {
                 val transactionResult = it.getParcelableExtra<TransactionResult>(UiKitConstants.KEY_TRANSACTION_RESULT)
-                Toast.makeText(this,"${transactionResult?.transactionId}", Toast.LENGTH_LONG).show()
+                Log.d("TransactionResult", "Transaction Result: ${transactionResult?.transactionId}, ${transactionResult?.status}")
             }
         }
     }
@@ -93,17 +101,65 @@ class MainActivity : AppCompatActivity() {
                 "0213213123",
                 null,
                 null
-            ), // Customer Details
+            ),
             itemDetails,
-            CreditCard(false, null, null, null, null, null, null, null, null, null),
+            CreditCard(true,
+                null,
+                Authentication.AUTH_3DS,
+                CreditCard.MIGS,
+                BankType.BRI,
+                null,
+                null,
+                null,
+                null,
+                null,),
             "customerIdentifier"+System.currentTimeMillis().toString(),
-            null, null, null,
-            Expiry(SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.getDefault()).format(Date()), Expiry.UNIT_DAY, 1),
+            PaymentCallback("https://klephtic-electricit.000webhostapp.com/response.php"), null, null,
+            Expiry(SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.getDefault()).format(Date()), Expiry.UNIT_MINUTE, 5),
         )
     }
 
     private fun setLocaleNew(languageCode: String?) {
         val locales = LocaleListCompat.forLanguageTags(languageCode)
         AppCompatDelegate.setApplicationLocales(locales)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (resultCode == RESULT_OK) {
+            val transactionResult = data?.getParcelableExtra<TransactionResult>(
+                UiKitConstants.KEY_TRANSACTION_RESULT
+            )
+            if (transactionResult != null) {
+                when (transactionResult.status) {
+                    STATUS_SUCCESS -> {
+                        Toast.makeText(this, "Transaction Finished. ID: " + transactionResult.transactionId, Toast.LENGTH_LONG).show()
+                        Log.d("TransactionResult", "Transaction Result: ${transactionResult.transactionId}, ${transactionResult.status}")
+                    }
+                    STATUS_PENDING -> {
+                        Toast.makeText(this, "Transaction Pending. ID: " + transactionResult.transactionId, Toast.LENGTH_LONG).show()
+                        Log.d("TransactionResult", "Transaction Result: ${transactionResult.transactionId}, ${transactionResult.status}")
+                    }
+                    STATUS_FAILED -> {
+                        Toast.makeText(this, "Transaction Failed. ID: " + transactionResult.transactionId, Toast.LENGTH_LONG).show()
+                        Log.d("TransactionResult", "Transaction Result: ${transactionResult.transactionId}, ${transactionResult.status}")
+                    }
+                    STATUS_CANCELED -> {
+                        Toast.makeText(this, "Transaction Cancelled", Toast.LENGTH_LONG).show()
+                        Log.d("TransactionResult", "Transaction Result: ${transactionResult.transactionId}, ${transactionResult.status}")
+                    }
+                    STATUS_INVALID -> {
+                        Toast.makeText(this, "Transaction Invalid. ID: " + transactionResult.transactionId, Toast.LENGTH_LONG).show()
+                        Log.d("TransactionResult", "Transaction Result: ${transactionResult.transactionId}, ${transactionResult.status}")
+                    }
+                    else -> {
+                        Toast.makeText(this, "Transaction ID: " + transactionResult.transactionId + ". Message: " + transactionResult.status, Toast.LENGTH_LONG).show()
+                        Log.d("TransactionResult", "Transaction Result: ${transactionResult.transactionId}, ${transactionResult.status}")
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Transaction Invalid", Toast.LENGTH_LONG).show()
+            }
+        }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 }
