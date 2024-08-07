@@ -1,4 +1,4 @@
-# Kotlin Rent Car Application
+# Simple Android Midtrans Application
 
 ![logo kotlin](https://kotlinlang.org/docs/images/kotlin-logo.png)
 
